@@ -1,0 +1,395 @@
+/* =========================
+   Neon Dark UI (Clean)
+   Replace your styles.css entirely with this
+   ========================= */
+
+:root{
+  --bg0:#050712;
+  --bg1:#070a1a;
+  --panel:#0b1226;
+  --panel2:#0a1022;
+
+  --text:#e8eeff;
+  --muted:#aab6e6;
+  --dim:#7f8ad1;
+
+  --border: rgba(255,255,255,0.10);
+  --border2: rgba(255,255,255,0.16);
+
+  --shadow: 0 18px 50px rgba(0,0,0,.55);
+  --shadow2: 0 10px 30px rgba(0,0,0,.40);
+
+  --radius: 16px;
+
+  --neonC:#37f6ff;   /* cyan */
+  --neonP:#a78bfa;   /* purple */
+  --neonG:#34d399;   /* green */
+  --neonR:#fb7185;   /* red */
+
+  --glowC: 0 0 18px rgba(55,246,255,.35);
+  --glowP: 0 0 22px rgba(167,139,250,.35);
+  --glowG: 0 0 18px rgba(52,211,153,.28);
+  --glowR: 0 0 18px rgba(251,113,133,.28);
+
+  --focus: 0 0 0 4px rgba(55,246,255,.18);
+}
+
+*{ box-sizing:border-box; }
+html,body{ height:100%; margin:0; }
+
+body{
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  color: var(--text);
+  background:
+    radial-gradient(1000px 650px at 10% 5%, rgba(55,246,255,0.18), transparent 60%),
+    radial-gradient(900px 650px at 85% 10%, rgba(167,139,250,0.16), transparent 60%),
+    radial-gradient(800px 600px at 50% 90%, rgba(52,211,153,0.10), transparent 60%),
+    linear-gradient(180deg, var(--bg0), var(--bg1));
+}
+
+/* Subtle moving glow */
+body:before{
+  content:"";
+  position: fixed;
+  inset: -120px;
+  background:
+    radial-gradient(600px 420px at 20% 30%, rgba(55,246,255,.10), transparent 60%),
+    radial-gradient(520px 420px at 80% 20%, rgba(167,139,250,.10), transparent 60%);
+  filter: blur(10px);
+  opacity: .7;
+  pointer-events: none;
+}
+
+/* Links */
+a{ color:inherit; text-decoration:none; }
+a:hover{ opacity:.92; }
+
+/* Layout */
+.container{
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.title{
+  margin: 0 0 10px 0;
+  font-size: 24px;
+  letter-spacing: .2px;
+}
+
+.subtitle{
+  margin: 0 0 16px 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.row{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+
+.space-between{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hr{
+  height:1px;
+  background: rgba(255,255,255,.10);
+  margin: 14px 0;
+}
+
+/* Cards */
+.card{
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+
+.card-pad{ padding: 16px; }
+
+/* Badge / chips */
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.03);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.badge.neon{
+  border-color: rgba(55,246,255,.28);
+  box-shadow: var(--glowC);
+}
+
+/* Inputs */
+.label{
+  display:block;
+  font-size: 13px;
+  color: var(--muted);
+  margin: 6px 0;
+}
+
+.input, .select, .textarea{
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+  color: var(--text);
+  padding: 11px 12px;
+  outline: none;
+  transition: border-color .2s ease, box-shadow .2s ease, transform .06s ease;
+}
+
+.textarea{ min-height: 96px; resize: vertical; }
+
+.input:focus, .select:focus, .textarea:focus{
+  border-color: rgba(55,246,255,.45);
+  box-shadow: var(--focus), var(--glowC);
+}
+
+.input::placeholder, .textarea::placeholder{
+  color: rgba(170,182,230,.55);
+}
+
+/* Buttons */
+.btn{
+  border: 1px solid var(--border2);
+  background: rgba(255,255,255,.05);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: transform .06s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease;
+  user-select:none;
+}
+
+.btn:hover{
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.22);
+  box-shadow: var(--shadow2);
+}
+
+.btn:active{ transform: translateY(1px); }
+
+.btn-primary{
+  border-color: rgba(55,246,255,.35);
+  background:
+    linear-gradient(180deg, rgba(55,246,255,.20), rgba(167,139,250,.10));
+  box-shadow: var(--glowC);
+}
+
+.btn-primary:hover{
+  border-color: rgba(55,246,255,.55);
+  box-shadow: var(--glowC), var(--shadow2);
+}
+
+.btn-danger{
+  border-color: rgba(251,113,133,.35);
+  background: linear-gradient(180deg, rgba(251,113,133,.18), rgba(251,113,133,.08));
+  box-shadow: var(--glowR);
+}
+
+/* Alerts */
+.alert{
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.04);
+  padding: 11px 12px;
+  border-radius: 14px;
+}
+
+.alert-success{
+  border-color: rgba(52,211,153,.35);
+  background: rgba(52,211,153,.10);
+  box-shadow: var(--glowG);
+}
+
+.alert-danger{
+  border-color: rgba(251,113,133,.35);
+  background: rgba(251,113,133,.10);
+  box-shadow: var(--glowR);
+}
+
+/* QR image + reader */
+.qr{
+  width: 220px;
+  max-width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.02);
+  padding: 10px;
+  box-shadow: var(--shadow2);
+}
+
+.reader{
+  width: 360px;
+  max-width: 100%;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(55,246,255,.20);
+  background: rgba(255,255,255,.03);
+  box-shadow: var(--glowC), var(--shadow2);
+}
+
+/* Key-value grid used in your pages */
+.kv{
+  display:grid;
+  grid-template-columns: 120px 1fr;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.kv b{ color: var(--text); font-weight: 650; }
+
+/* Mono text */
+.mono{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  color: rgba(170,182,230,.85);
+}
+
+/* Navbar */
+/* =========================
+   BRAND OVERRIDE – STRONG NEON
+   Place this at the END of styles.css
+   ========================= */
+
+.nav{
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(5,7,18,.78);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(255,255,255,.12);
+}
+
+.nav-inner{
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+/* BRAND */
+.brand{
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 1.4px;
+
+  color: #ffffff;
+  position: relative;
+  margin-right: 24px;
+}
+
+/* Neon glow plate */
+.brand::before{
+  content:"";
+  position:absolute;
+  left:-18px;
+  top:-12px;
+  width: calc(100% + 36px);
+  height: calc(100% + 24px);
+  border-radius: 999px;
+  background:
+    radial-gradient(60% 120% at 30% 50%, rgba(55,246,255,.35), transparent 65%),
+    radial-gradient(60% 120% at 70% 50%, rgba(167,139,250,.35), transparent 65%);
+  filter: blur(18px);
+  opacity: .95;
+  z-index: -1;
+}
+
+/* Main word */
+.brand-main{
+  color: #ffffff;
+  text-shadow:
+    0 0 12px rgba(55,246,255,.45),
+    0 0 28px rgba(55,246,255,.35);
+}
+
+/* Accent word */
+.brand-accent{
+  color: var(--neonC);
+  text-shadow:
+    0 0 16px rgba(55,246,255,.75),
+    0 0 40px rgba(55,246,255,.55);
+}
+
+/* Nav links spacing */
+.nav a{
+  padding: 9px 14px;
+  border-radius: 14px;
+}
+
+/* Push everything else right */
+.nav-right{
+  margin-left: auto;
+}
+
+/* Mobile brand scale */
+@media (max-width: 680px){
+  .brand{
+    font-size: 20px;
+    letter-spacing: 1px;
+  }
+}
+
+
+/* Brand neon */
+.brand{
+  font-weight: 800;
+  letter-spacing: .5px;
+  font-size: 18px;
+  color: var(--text);
+  position: relative;
+}
+
+.brand:after{
+  content:"";
+  position:absolute;
+  inset: -6px -10px;
+  border-radius: 999px;
+  background:
+    radial-gradient(40% 80% at 30% 50%, rgba(55,246,255,.20), transparent 60%),
+    radial-gradient(40% 80% at 70% 50%, rgba(167,139,250,.18), transparent 60%);
+  filter: blur(10px);
+  opacity: .7;
+  z-index: -1;
+}
+
+.brand span{
+  color: var(--neonC);
+  text-shadow: 0 0 16px rgba(55,246,255,.38);
+}
+
+/* Mobile tweaks */
+@media (max-width: 680px){
+  .container{ padding: 16px; }
+  .title{ font-size: 22px; }
+  .reader{ width: 100%; }
+}
+
+.nav-links{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+
