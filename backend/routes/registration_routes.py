@@ -1,114 +1,534 @@
 from flask import Blueprint, request, jsonify
 from bson import ObjectId
 from bson.errors import InvalidId
+
 from db import registrations, events
 from utils.auth import auth_required
 from utils.qr import make_qr_base64
 from utils.emailer import send_email
 from utils.sms import send_sms
 
-reg_bp = Blueprint("registrations", __name__, url_prefix="/api/registrations")
 
+reg_bp = Blueprint(
+    "registrations",
+    __name__,
+    url_prefix="/api/registrations"
+)
+
+
+# ============================================================
+# REGISTER FOR EVENT
+# ============================================================
 
 @reg_bp.post("/register/<event_id>")
 @auth_required(roles=["participant"])
 def register_for_event(event_id):
+
     user = request.user
 
-    # ✅ Safe ObjectId conversion
+    # --------------------------------------------------------
+    # Validate event id
+    # --------------------------------------------------------
+
     try:
-        ev = events.find_one({"_id": ObjectId(event_id)})
-    except InvalidId:
-        return jsonify({"error": "Invalid event id"}), 400
+        event_object_id = ObjectId(event_id)
+
+    except (InvalidId, TypeError):
+
+        return jsonify({
+            "error": "Invalid event id"
+        }), 400
+
+    # --------------------------------------------------------
+    # Find event
+    # --------------------------------------------------------
+
+    ev = events.find_one({
+        "_id": event_object_id
+    })
 
     if not ev:
-        return jsonify({"error": "Event not found"}), 404
+
+        return jsonify({
+            "error": "Event not found"
+        }), 404
+
+    # --------------------------------------------------------
+    # Check published
+    # --------------------------------------------------------
+
     if not ev.get("published", False):
-        return jsonify({"error": "Event not published"}), 403
 
-    existing = registrations.find_one({"event_id": event_id, "user_id": user["user_id"]})
-    if existing:
-        return jsonify({"error": "Already registered"}), 409
+        return jsonify({
+            "error": "Event not published"
+        }), 403
 
-    # Registration token (encoded into QR)
-    reg_payload = f"{event_id}:{user['user_id']}"
-    qr_b64 = make_qr_base64(reg_payload)  # should return base64 without data prefix
+    # --------------------------------------------------------
+    # Prevent duplicate registration
+    # --------------------------------------------------------
 
-    doc = {
+    existing = registrations.find_one({
         "event_id": event_id,
-        "user_id": user["user_id"],
-        "email": user["email"],
-        "name": user.get("name", ""),
-        "qr_payload": reg_payload,
-        "qr_image": qr_b64,
-        "status": "registered"
-    }
-    res = registrations.insert_one(doc)
+        "user_id": user["user_id"]
+    })
 
-    # ✅ EMAIL CONFIRMATION (HTML + QR)
-    subject = f"Registration Confirmed: {ev.get('title', 'Event')}"
-    plain_body = (
-        f"Hi {user.get('name','')},\n\n"
-        f"You are registered for: {ev.get('title','')}\n"
-        f"Date: {ev.get('date','')}\n\n"
-        f"Show your QR at entry. You can also find it in My Registrations.\n\n"
-        f"Thanks!\nEvent Platform"
+    if existing:
+
+        return jsonify({
+            "error": "Already registered",
+            "registration_id": str(existing["_id"])
+        }), 409
+
+    # --------------------------------------------------------
+    # Create registration first
+    # --------------------------------------------------------
+
+    registration_doc = {
+
+        "event_id": event_id,
+
+        "user_id": user["user_id"],
+
+        "email": user.get("email", ""),
+
+        "name": user.get("name", ""),
+
+        "status": "registered",
+
+        "qr_payload": "",
+
+        "qr_image": ""
+    }
+
+    result = registrations.insert_one(
+        registration_doc
     )
 
-    # Embed QR directly (base64)
-    # make_qr_base64 should return only base64; we add the prefix for HTML
-    qr_data_uri = f"data:image/png;base64,{qr_b64}"
+    registration_id = str(
+        result.inserted_id
+    )
+
+    # --------------------------------------------------------
+    # Generate QR
+    # --------------------------------------------------------
+
+    try:
+
+        qr_payload = registration_id
+
+        qr_b64 = make_qr_base64(
+            qr_payload
+        )
+
+        print("============================")
+        print("QR GENERATED")
+        print("Registration ID:", registration_id)
+        print("Payload:", qr_payload)
+        print("QR Type:", type(qr_b64))
+        print("QR Length:", len(qr_b64))
+        print("QR Start:", qr_b64[:40])
+        print("============================")
+
+    except Exception as e:
+
+        print("QR generation failed:", e)
+
+        registrations.delete_one({
+            "_id": result.inserted_id
+        })
+
+        return jsonify({
+            "error": "QR generation failed"
+        }), 500
+
+    # --------------------------------------------------------
+    # Save RAW BASE64 into MongoDB
+    # --------------------------------------------------------
+
+    registrations.update_one(
+
+        {
+            "_id": result.inserted_id
+        },
+
+        {
+            "$set": {
+
+                "qr_payload": qr_payload,
+
+                "qr_image": qr_b64
+
+            }
+        }
+    )
+
+    # --------------------------------------------------------
+    # Full browser-ready QR
+    # --------------------------------------------------------
+
+    qr_data_uri = (
+        f"data:image/png;base64,{qr_b64}"
+    )
+
+    # --------------------------------------------------------
+    # Event information
+    # --------------------------------------------------------
+
+    event_title = ev.get(
+        "title",
+        "Event"
+    )
+
+    event_date = ev.get(
+        "date",
+        "TBA"
+    )
+
+    participant_name = user.get(
+        "name",
+        "Participant"
+    )
+
+    # --------------------------------------------------------
+    # Email
+    # --------------------------------------------------------
+
+    subject = (
+        f"Registration Confirmed: "
+        f"{event_title}"
+    )
+
+    plain_body = (
+
+        f"Hi {participant_name},\n\n"
+
+        f"Your registration is confirmed.\n\n"
+
+        f"Event: {event_title}\n"
+
+        f"Date: {event_date}\n"
+
+        f"Registration ID: "
+        f"{registration_id}\n\n"
+
+        f"Show your QR code at entry.\n\n"
+
+        f"Thanks!\n"
+
+        f"Event Platform"
+    )
 
     html_body = f"""
-    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111;">
-      <h2 style="margin: 0 0 10px;">Registration Confirmed ✅</h2>
-      <p style="margin: 0 0 12px;">Hi <b>{user.get('name','Participant')}</b>,</p>
+    <div style="
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        color: #111;
+        max-width: 600px;
+    ">
 
-      <div style="padding: 12px; border: 1px solid #ddd; border-radius: 10px;">
-        <p style="margin: 0 0 6px;"><b>Event:</b> {ev.get('title','')}</p>
-        <p style="margin: 0;"><b>Date:</b> {ev.get('date','TBA')}</p>
-      </div>
+        <h2>
+            Registration Confirmed ✅
+        </h2>
 
-      <p style="margin: 16px 0 8px;"><b>Your Check-in QR:</b></p>
-      <img src="{qr_data_uri}" alt="QR Code" style="width: 220px; height: 220px; border: 1px solid #ddd; border-radius: 10px; padding: 8px;" />
+        <p>
+            Hi <b>{participant_name}</b>,
+        </p>
 
-      <p style="margin: 14px 0 0;">
-        Show this QR at entry. You can also open <b>My Registrations</b> in the app to display it.
-      </p>
+        <div style="
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+        ">
 
-      <p style="margin: 18px 0 0; font-size: 12px; color: #666;">
-        Event Platform
-      </p>
+            <p>
+                <b>Event:</b>
+                {event_title}
+            </p>
+
+            <p>
+                <b>Date:</b>
+                {event_date}
+            </p>
+
+            <p>
+                <b>Registration ID:</b>
+                {registration_id}
+            </p>
+
+        </div>
+
+        <p>
+            <b>Your Check-in QR:</b>
+        </p>
+
+        <img
+            src="{qr_data_uri}"
+            alt="QR Code"
+            style="
+                width: 220px;
+                height: 220px;
+                padding: 8px;
+                border: 1px solid #ddd;
+            "
+        />
+
+        <p>
+            Show this QR at event entry.
+        </p>
+
+        <p style="
+            font-size: 12px;
+            color: #666;
+        ">
+            Event Platform
+        </p>
+
     </div>
     """
 
-    try:
-        send_email(user["email"], subject, plain_body, html=html_body)
-    except Exception as e:
-        # Keep registration successful even if email fails
-        print("Email failed:", e)
+    email_address = user.get(
+        "email"
+    )
 
-    # SMS (optional - keep mock unless you store phone)
-    phone = None
-    if phone:
+    if email_address:
+
         try:
-            send_sms(phone, f"Registered for {ev.get('title','')} on {ev.get('date','')}")
+
+            send_email(
+                email_address,
+                subject,
+                plain_body,
+                html=html_body
+            )
+
+            print(
+                "Email sent:",
+                email_address
+            )
+
         except Exception as e:
-            print("SMS failed:", e)
 
-    return jsonify({"registration_id": str(res.inserted_id), "qr_image": qr_b64}), 201
+            print(
+                "Email failed:",
+                e
+            )
 
+    # --------------------------------------------------------
+    # Optional SMS
+    # --------------------------------------------------------
+
+    phone = user.get(
+        "phone"
+    )
+
+    if phone:
+
+        try:
+
+            send_sms(
+                phone,
+                f"Registered for "
+                f"{event_title} "
+                f"on {event_date}"
+            )
+
+        except Exception as e:
+
+            print(
+                "SMS failed:",
+                e
+            )
+
+    # --------------------------------------------------------
+    # API response
+    # --------------------------------------------------------
+
+    return jsonify({
+
+        "message":
+            "Registration successful",
+
+        "registration": {
+
+            "registration_id":
+                registration_id,
+
+            "event_id":
+                event_id,
+
+            "event_title":
+                event_title,
+
+            "event_date":
+                event_date,
+
+            "status":
+                "registered",
+
+            "qr_payload":
+                qr_payload,
+
+            # IMPORTANT:
+            # Full image format sent to frontend
+            "qr_image":
+                qr_data_uri
+        }
+
+    }), 201
+
+
+# ============================================================
+# MY REGISTRATIONS
+# ============================================================
 
 @reg_bp.get("/my")
 @auth_required(roles=["participant"])
 def my_regs():
+
     user = request.user
+
     out = []
-    for r in registrations.find({"user_id": user["user_id"]}):
+
+    user_regs = registrations.find({
+        "user_id": user["user_id"]
+    })
+
+    for r in user_regs:
+
+        # ----------------------------------------------------
+        # Read QR from MongoDB
+        # ----------------------------------------------------
+
+        qr_value = r.get(
+            "qr_image",
+            ""
+        )
+
+        qr_image = ""
+
+        if qr_value:
+
+            # Already has prefix
+            if qr_value.startswith(
+                "data:image"
+            ):
+
+                qr_image = qr_value
+
+            # Raw Base64
+            else:
+
+                qr_image = (
+                    "data:image/png;base64,"
+                    + qr_value
+                )
+
+        # ----------------------------------------------------
+        # Get event info
+        # ----------------------------------------------------
+
+        event_title = ""
+        event_date = ""
+
+        try:
+
+            event_id = r.get(
+                "event_id",
+                ""
+            )
+
+            ev = events.find_one({
+                "_id": ObjectId(event_id)
+            })
+
+            if ev:
+
+                event_title = ev.get(
+                    "title",
+                    ""
+                )
+
+                event_date = ev.get(
+                    "date",
+                    ""
+                )
+
+        except (
+            InvalidId,
+            TypeError,
+            Exception
+        ) as e:
+
+            print(
+                "Event lookup failed:",
+                e
+            )
+
+        # ----------------------------------------------------
+        # Debug
+        # ----------------------------------------------------
+
+        print("============================")
+
+        print(
+            "Registration:",
+            str(r["_id"])
+        )
+
+        print(
+            "QR exists:",
+            bool(qr_value)
+        )
+
+        if qr_value:
+
+            print(
+                "QR length:",
+                len(qr_value)
+            )
+
+            print(
+                "QR start:",
+                qr_value[:40]
+            )
+
+        print("============================")
+
+        # ----------------------------------------------------
+        # Response
+        # ----------------------------------------------------
+
         out.append({
-            "id": str(r["_id"]),
-            "event_id": r["event_id"],
-            "status": r.get("status", ""),
-            "qr_image": r.get("qr_image", "")
+
+            "id":
+                str(r["_id"]),
+
+            "event_id":
+                r.get(
+                    "event_id",
+                    ""
+                ),
+
+            "event_title":
+                event_title,
+
+            "event_date":
+                event_date,
+
+            "status":
+                r.get(
+                    "status",
+                    ""
+                ),
+
+            "qr_payload":
+                r.get(
+                    "qr_payload",
+                    ""
+                ),
+
+            "qr_image":
+                qr_image
         })
-    return jsonify(out)
+
+    return jsonify(out), 200
